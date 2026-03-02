@@ -1,9 +1,45 @@
+using Azure.Storage.Blobs;
+using Microsoft.Azure.Cosmos;
+using FileNetPOC.Api.Infrastructure;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+// 1. Load the auto-generated Terraform configuration (Crucial for your local/cloud hybrid setup)
+builder.Configuration.AddJsonFile("appsettings.Terraform.json", optional: true, reloadOnChange: true);
+
+// 2. Add Base Services
+builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// 3. Add Exception Handling (Your new additions)
+builder.Services.AddExceptionHandler<CustomExceptionHandler>();
+builder.Services.AddProblemDetails();
+
+// 4. Bind the configuration section & Register Azure SDK Clients
+var fileNetConfig = builder.Configuration.GetSection("FileNet");
+
+// Blob Storage Client
+builder.Services.AddSingleton(x => 
+{
+    var connectionString = fileNetConfig["StorageConnectionString"];
+    return new BlobServiceClient(connectionString);
+});
+
+// Cosmos DB Client
+builder.Services.AddSingleton(x =>
+{
+    var connectionString = fileNetConfig["CosmosConnectionString"];
+    var options = new CosmosClientOptions()
+    {
+        SerializerOptions = new CosmosSerializationOptions()
+        {
+            PropertyNamingPolicy = CosmosPropertyNamingPolicy.CamelCase
+        },
+        ConnectionMode = ConnectionMode.Direct
+    };
+    return new CosmosClient(connectionString, options);
+});
 
 var app = builder.Build();
 
@@ -14,31 +50,11 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// 5. Enable the Exception Handler Middleware (Your new addition)
+app.UseExceptionHandler();
+
 app.UseHttpsRedirection();
-
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast")
-.WithOpenApi();
+app.UseAuthorization();
+app.MapControllers();
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
