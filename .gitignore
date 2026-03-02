@@ -522,3 +522,19 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+
+# .NET
+bin/
+obj/
+appsettings.Terraform.json
+
+# Local Emulators / OS
+azurite-data/
+cosmos-data/
+.DS_Store
