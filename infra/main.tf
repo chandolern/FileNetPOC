@@ -63,3 +63,16 @@ output "app_insights_connection_string" {
   value     = azurerm_application_insights.appinsights.connection_string
   sensitive = true
 }
+
+# Auto-generate local configuration for the .NET API
+resource "local_file" "dotnet_config" {
+  content = jsonencode({
+    "FileNet" = {
+      "CosmosConnectionString"      = azurerm_cosmosdb_account.cosmos.primary_sql_connection_string
+      "AppInsightsConnectionString" = azurerm_application_insights.appinsights.connection_string
+    }
+  })
+  
+  # This path tells Terraform to go up one level from 'infra' and into the 'src' folder
+  filename = "${path.module}/../src/FileNetPOC.Api/appsettings.Terraform.json"
+}
